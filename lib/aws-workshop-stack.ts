@@ -289,5 +289,65 @@ export class AwsWorkshopStack extends cdk.Stack {
       value: this.ecsCluster.clusterArn,
       description: 'ECS Cluster ARN',
     });
+
+    // ===========================================
+    // ECSプレースホルダー・タスク定義
+    // ===========================================
+    // サービスを初回作成するために必要な、プレースホルダーのタスク定義
+    // 実際のデプロイはCI/CDパイプラインが新しいリビジョンを作成して行う
+    const placeholderTaskDefinition = new ecs.FargateTaskDefinition(this, 'PlaceholderTaskDef', {
+      family: 'aws-workshop-app-family',
+      cpu: 512, // 0.5 vCPU
+      memoryLimitMiB: 1024, // 1 GB
+      runtimePlatform: {
+        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+        cpuArchitecture: ecs.CpuArchitecture.ARM64,
+      },
+    });
+
+    // プレースホルダーのコンテナを追加
+    placeholderTaskDefinition.addContainer('PlaceholderContainer', {
+      // AWSが提供するサンプルイメージを使用
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/ecs/amazon-ecs-sample:latest'),
+      portMappings: [{
+        containerPort: 80, // サンプルイメージは80番ポートでリッスンする
+        protocol: ecs.Protocol.TCP,
+      }],
+      logging: ecs.LogDrivers.awsLogs({
+        streamPrefix: 'ecs-placeholder',
+        logRetention: 30, // ログの保持期間（30日）
+      }),
+    });
+
+    // ===========================================
+    // ECSサービス作成
+    // ===========================================
+    // コンテナを永続的に実行・管理するためのFargateサービスを作成
+    const ecsService = new ecs.FargateService(this, 'WorkshopFargateService', {
+      cluster: this.ecsCluster,
+      // プレースホルダーのタスク定義を指定
+      taskDefinition: placeholderTaskDefinition,
+      // 実行するタスクの希望数
+      desiredCount: 2,
+      // ALBのターゲットグループにサービスを関連付ける
+      assignPublicIp: false, // プライベートサブネットに配置するためパブリックIPは不要
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: [this.ecsSecurityGroup],
+      // サービスのヘルスチェック猶予期間
+      healthCheckGracePeriod: cdk.Duration.seconds(60),
+    });
+
+    // サービスをALBのターゲットグループにアタッチ
+    ecsService.attachToApplicationTargetGroup(this.targetGroup);
+
+    // ===========================================
+    // CloudFormationアウトプット（ECSサービス情報）
+    // ===========================================
+    new cdk.CfnOutput(this, 'EcsServiceName', {
+      value: ecsService.serviceName,
+      description: 'ECS Service Name',
+    });
   }
 }
