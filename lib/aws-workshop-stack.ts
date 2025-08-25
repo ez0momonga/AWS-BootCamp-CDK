@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
 import { Construct } from 'constructs';
 
 export class AwsWorkshopStack extends cdk.Stack {
@@ -12,6 +13,7 @@ export class AwsWorkshopStack extends cdk.Stack {
   public readonly alb: elbv2.ApplicationLoadBalancer;
   public readonly targetGroup: elbv2.ApplicationTargetGroup;
   public readonly ecrRepository: ecr.Repository;
+  public readonly ecsCluster: ecs.Cluster;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -257,6 +259,35 @@ export class AwsWorkshopStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'EcrRepositoryName', {
       value: this.ecrRepository.repositoryName,
       description: 'ECR Repository Name',
+    });
+
+    // ===========================================
+    // ECS（Elastic Container Service）クラスター作成
+    // ===========================================
+    // コンテナタスクを実行するための論理的なグループを作成
+    // - Fargate起動タイプを使用するため、EC2インスタンスの管理は不要
+    // - 作成済みのVPC内にクラスターを配置
+    this.ecsCluster = new ecs.Cluster(this, 'WorkshopCluster', {
+      vpc: this.vpc,
+      // クラスター名
+      clusterName: 'aws-workshop-cluster',
+      // Fargateキャパシティプロバイダーを有効化
+      enableFargateCapacityProviders: true,
+      // Container Insightsを有効化（モニタリング用）
+      containerInsights: true,
+    });
+
+    // ===========================================
+    // CloudFormationアウトプット（ECSクラスター情報）
+    // ===========================================
+    new cdk.CfnOutput(this, 'EcsClusterName', {
+      value: this.ecsCluster.clusterName,
+      description: 'ECS Cluster Name',
+    });
+
+    new cdk.CfnOutput(this, 'EcsClusterArn', {
+      value: this.ecsCluster.clusterArn,
+      description: 'ECS Cluster ARN',
     });
   }
 }
