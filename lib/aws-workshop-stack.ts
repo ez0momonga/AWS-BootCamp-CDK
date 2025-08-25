@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
 
 export class AwsWorkshopStack extends cdk.Stack {
@@ -10,6 +11,7 @@ export class AwsWorkshopStack extends cdk.Stack {
   public readonly ecsSecurityGroup: ec2.SecurityGroup;
   public readonly alb: elbv2.ApplicationLoadBalancer;
   public readonly targetGroup: elbv2.ApplicationTargetGroup;
+  public readonly ecrRepository: ecr.Repository;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -221,6 +223,40 @@ export class AwsWorkshopStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'AlbUrl', {
       value: `http://${this.alb.loadBalancerDnsName}`,
       description: 'Application URL (HTTP)',
+    });
+
+    // ===========================================
+    // ECR（Elastic Container Registry）リポジトリ作成
+    // ===========================================
+    // コンテナイメージを保存するためのプライベートリポジトリを作成
+    // ECSタスクはここからコンテナイメージをプルして実行する
+    this.ecrRepository = new ecr.Repository(this, 'WorkshopRepository', {
+      // リポジトリ名（小文字・ハイフンのみ使用可能）
+      repositoryName: 'aws-workshop-app',
+      // イメージタグの可変性設定（Mutable: タグの上書き可能）
+      imageTagMutability: ecr.TagMutability.MUTABLE,
+      // 暗号化設定（AWS KMSを使用、AWS管理キー）
+      encryption: ecr.RepositoryEncryption.KMS,
+      // スタック削除時の動作設定（ワークショップ用のため削除可能にする）
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // ===========================================
+    // CloudFormationアウトプット（ECR情報）
+    // ===========================================
+    new cdk.CfnOutput(this, 'EcrRepositoryArn', {
+      value: this.ecrRepository.repositoryArn,
+      description: 'ECR Repository ARN',
+    });
+
+    new cdk.CfnOutput(this, 'EcrRepositoryUri', {
+      value: this.ecrRepository.repositoryUri,
+      description: 'ECR Repository URI (for docker push)',
+    });
+
+    new cdk.CfnOutput(this, 'EcrRepositoryName', {
+      value: this.ecrRepository.repositoryName,
+      description: 'ECR Repository Name',
     });
   }
 }
