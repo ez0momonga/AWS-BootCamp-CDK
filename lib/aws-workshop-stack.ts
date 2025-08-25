@@ -45,7 +45,7 @@ export class AwsWorkshopStack extends cdk.Stack {
           name: 'PrivateSubnet',
           // プライベートサブネット（NAT Gatewayを通じて外部アクセス可能）
           subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        }
+        },
       ],
       // DNSホスト名の解決を有効化（ECSで必要）
       enableDnsHostnames: true,
@@ -76,7 +76,7 @@ export class AwsWorkshopStack extends cdk.Stack {
     // ===========================================
     // セキュリティグループ作成
     // ===========================================
-    
+
     // ALB（Application Load Balancer）用セキュリティグループ
     // インターネットからのHTTP/HTTPSアクセスを許可
     this.albSecurityGroup = new ec2.SecurityGroup(this, 'AlbSecurityGroup', {
@@ -90,14 +90,14 @@ export class AwsWorkshopStack extends cdk.Stack {
     this.albSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(), // 0.0.0.0/0（全てのIPアドレス）
       ec2.Port.tcp(80),   // TCPポート80
-      'Allow HTTP traffic'
+      'Allow HTTP traffic',
     );
 
     // インバウンドルール：HTTPS（ポート443）を全てのIPから許可
     this.albSecurityGroup.addIngressRule(
       ec2.Peer.anyIpv4(), // 0.0.0.0/0（全てのIPアドレス）
       ec2.Port.tcp(443),  // TCPポート443
-      'Allow HTTPS traffic'
+      'Allow HTTPS traffic',
     );
 
     // ECS（Elastic Container Service）用セキュリティグループ
@@ -114,7 +114,7 @@ export class AwsWorkshopStack extends cdk.Stack {
     this.ecsSecurityGroup.addIngressRule(
       this.albSecurityGroup, // ソースとしてALBのセキュリティグループを指定
       ec2.Port.tcp(80),      // TCPポート80
-      'Allow traffic from ALB'
+      'Allow traffic from ALB',
     );
 
     // ===========================================
@@ -165,7 +165,7 @@ export class AwsWorkshopStack extends cdk.Stack {
       protocol: elbv2.ApplicationProtocol.HTTP,
       // VPCを指定
       vpc: this.vpc,
-      
+
       // ヘルスチェック設定
       healthCheck: {
         // ヘルスチェック用のパス（コンテナのヘルスチェックエンドポイント）
@@ -195,7 +195,7 @@ export class AwsWorkshopStack extends cdk.Stack {
       port: 80,
       // プロトコル
       protocol: elbv2.ApplicationProtocol.HTTP,
-      
+
       // デフォルトアクション：全てのリクエストをターゲットグループに転送
       defaultAction: elbv2.ListenerAction.forward([this.targetGroup]),
     });
