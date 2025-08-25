@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { Construct } from 'constructs';
 
 export class AwsWorkshopStack extends cdk.Stack {
@@ -7,6 +8,8 @@ export class AwsWorkshopStack extends cdk.Stack {
   public readonly vpc: ec2.Vpc;
   public readonly albSecurityGroup: ec2.SecurityGroup;
   public readonly ecsSecurityGroup: ec2.SecurityGroup;
+  public readonly alb: elbv2.ApplicationLoadBalancer;
+  public readonly targetGroup: elbv2.ApplicationTargetGroup;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -125,6 +128,99 @@ export class AwsWorkshopStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'EcsSecurityGroupId', {
       value: this.ecsSecurityGroup.securityGroupId,
       description: 'ECS Security Group ID',
+    });
+
+    // ===========================================
+    // Application Load Balancer (ALB) 作成
+    // ===========================================
+    // インターネット向けのApplication Load Balancerを作成
+    // - パブリックサブネットに配置してインターネットからアクセス可能
+    // - 複数のアベイラビリティゾーンにまたがって高可用性を確保
+    // - 作成したALB用セキュリティグループを適用
+    this.alb = new elbv2.ApplicationLoadBalancer(this, 'WorkshopAlb', {
+      vpc: this.vpc,
+      // インターネット向けALB（パブリックサブネットに配置）
+      internetFacing: true,
+      // パブリックサブネットを指定（複数AZで高可用性）
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PUBLIC,
+      },
+      // 作成済みのALB用セキュリティグループを適用
+      securityGroup: this.albSecurityGroup,
+      // 削除保護を無効化（ワークショップ用途のため）
+      deletionProtection: false,
+    });
+
+    // ===========================================
+    // ターゲットグループ作成
+    // ===========================================
+    // ALBがリクエストを転送する先のターゲットグループを作成
+    // ECSサービスがこのターゲットグループにタスクを登録する
+    this.targetGroup = new elbv2.ApplicationTargetGroup(this, 'WorkshopTargetGroup', {
+      // ターゲットタイプをIPアドレスに設定（ECS Fargateで使用）
+      targetType: elbv2.TargetType.IP,
+      // 使用するポート番号（コンテナのリスニングポート）
+      port: 80,
+      // プロトコル設定
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      // VPCを指定
+      vpc: this.vpc,
+      
+      // ヘルスチェック設定
+      healthCheck: {
+        // ヘルスチェック用のパス（コンテナのヘルスチェックエンドポイント）
+        path: '/',
+        // ヘルスチェックのプロトコル
+        protocol: elbv2.Protocol.HTTP,
+        // ヘルスチェックの間隔（秒）
+        interval: cdk.Duration.seconds(30),
+        // タイムアウト時間（秒）
+        timeout: cdk.Duration.seconds(5),
+        // 正常判定に必要な連続成功回数
+        healthyThresholdCount: 2,
+        // 異常判定に必要な連続失敗回数
+        unhealthyThresholdCount: 3,
+        // 正常応答として期待するHTTPステータスコード
+        healthyHttpCodes: '200',
+      },
+    });
+
+    // ===========================================
+    // ALBリスナー作成
+    // ===========================================
+    // ALBがリクエストを受信した際の処理を定義
+    // HTTP（ポート80）でリクエストを受信し、ターゲットグループに転送
+    this.alb.addListener('WorkshopListener', {
+      // リスニングポート
+      port: 80,
+      // プロトコル
+      protocol: elbv2.ApplicationProtocol.HTTP,
+      
+      // デフォルトアクション：全てのリクエストをターゲットグループに転送
+      defaultAction: elbv2.ListenerAction.forward([this.targetGroup]),
+    });
+
+    // ===========================================
+    // CloudFormationアウトプット（ALB情報）
+    // ===========================================
+    new cdk.CfnOutput(this, 'AlbArn', {
+      value: this.alb.loadBalancerArn,
+      description: 'ALB ARN',
+    });
+
+    new cdk.CfnOutput(this, 'AlbDnsName', {
+      value: this.alb.loadBalancerDnsName,
+      description: 'ALB DNS Name (Access URL)',
+    });
+
+    new cdk.CfnOutput(this, 'TargetGroupArn', {
+      value: this.targetGroup.targetGroupArn,
+      description: 'Target Group ARN',
+    });
+
+    new cdk.CfnOutput(this, 'AlbUrl', {
+      value: `http://${this.alb.loadBalancerDnsName}`,
+      description: 'Application URL (HTTP)',
     });
   }
 }
