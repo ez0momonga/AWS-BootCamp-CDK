@@ -307,10 +307,10 @@ export class AwsWorkshopStack extends cdk.Stack {
 
     // プレースホルダーのコンテナを追加
     placeholderTaskDefinition.addContainer('PlaceholderContainer', {
-      // AWSが提供するサンプルイメージを使用
-      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/ecs/amazon-ecs-sample:latest'),
+      // 軽量で確実に存在するnginxイメージを使用
+      image: ecs.ContainerImage.fromRegistry('nginx:latest'),
       portMappings: [{
-        containerPort: 80, // サンプルイメージは80番ポートでリッスンする
+        containerPort: 80, // nginxは80番ポートでリッスンする
         protocol: ecs.Protocol.TCP,
       }],
       logging: ecs.LogDrivers.awsLogs({

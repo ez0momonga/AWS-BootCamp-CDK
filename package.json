@@ -1,7 +1,6 @@
 {
   "name": "aws-workshop",
   "version": "0.1.0",
-  "type": "module",
   "bin": {
     "aws-workshop": "bin/aws-workshop.js"
   },
