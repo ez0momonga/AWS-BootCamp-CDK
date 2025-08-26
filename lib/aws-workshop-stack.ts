@@ -5,6 +5,10 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import { Construct } from 'constructs';
 
+interface AwsWorkshopStackProps extends cdk.StackProps {
+  identifier?: string;
+}
+
 export class AwsWorkshopStack extends cdk.Stack {
   // パブリックプロパティとして定義し、他のリソースから参照可能にする
   public readonly vpc: ec2.Vpc;
@@ -15,8 +19,11 @@ export class AwsWorkshopStack extends cdk.Stack {
   public readonly ecrRepository: ecr.Repository;
   public readonly ecsCluster: ecs.Cluster;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: AwsWorkshopStackProps) {
     super(scope, id, props);
+
+    // デフォルト値として'default'を使用、環境変数または引数で上書き可能
+    const identifier = props?.identifier || 'default';
 
     // ===========================================
     // VPC作成
@@ -234,7 +241,7 @@ export class AwsWorkshopStack extends cdk.Stack {
     // ECSタスクはここからコンテナイメージをプルして実行する
     this.ecrRepository = new ecr.Repository(this, 'WorkshopRepository', {
       // リポジトリ名（小文字・ハイフンのみ使用可能）
-      repositoryName: 'aws-workshop-app',
+      repositoryName: `aws-workshop-app-${identifier}`,
       // イメージタグの可変性設定（Mutable: タグの上書き可能）
       imageTagMutability: ecr.TagMutability.MUTABLE,
       // 暗号化設定（AWS KMSを使用、AWS管理キー）
@@ -270,7 +277,7 @@ export class AwsWorkshopStack extends cdk.Stack {
     this.ecsCluster = new ecs.Cluster(this, 'WorkshopCluster', {
       vpc: this.vpc,
       // クラスター名
-      clusterName: 'aws-workshop-cluster',
+      clusterName: `aws-workshop-cluster-${identifier}`,
       // Fargateキャパシティプロバイダーを有効化
       enableFargateCapacityProviders: true,
       // Container Insightsを有効化（モニタリング用）
@@ -296,7 +303,7 @@ export class AwsWorkshopStack extends cdk.Stack {
     // サービスを初回作成するために必要な、プレースホルダーのタスク定義
     // 実際のデプロイはCI/CDパイプラインが新しいリビジョンを作成して行う
     const placeholderTaskDefinition = new ecs.FargateTaskDefinition(this, 'PlaceholderTaskDef', {
-      family: 'aws-workshop-app-family',
+      family: `aws-workshop-app-family-${identifier}`,
       cpu: 512, // 0.5 vCPU
       memoryLimitMiB: 1024, // 1 GB
       runtimePlatform: {
