@@ -333,14 +333,18 @@ export class AwsWorkshopStack extends cdk.Stack {
 
     // Appのコンテナを追加
     appTaskDefinition.addContainer('AppContainer', {
-      // 学生がTask Definition更新するまでの一時的なプレースホルダーイメージ
-      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/docker/library/hello-world:latest'),
+      // ポート3000でHTTPサーバーを起動するシンプルなHTTPサーバー
+      image: ecs.ContainerImage.fromRegistry('nginx:alpine'),
+      command: [
+        'sh', '-c',
+        'echo \'server { listen 3000; location / { return 200 "<h1>AWS Workshop - Ready for Deployment!</h1><p>Port 3000 HTTP Server is running.</p>"; add_header Content-Type text/html; } }\' > /etc/nginx/conf.d/default.conf && nginx -g "daemon off;"',
+      ],
       portMappings: [{
-        containerPort: 3000, // Rails serverは3000番ポートでリッスンする
+        containerPort: 3000, // nginxサーバーは3000番ポートでリッスンする
         protocol: ecs.Protocol.TCP,
       }],
       logging: ecs.LogDrivers.awsLogs({
-        streamPrefix: 'ecs-app',
+        streamPrefix: 'ecs-nginx-server',
         logRetention: 30, // ログの保持期間（30日）
       }),
     });
