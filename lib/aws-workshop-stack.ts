@@ -3,6 +3,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
 interface AwsWorkshopStackProps extends cdk.StackProps {
@@ -300,22 +301,38 @@ export class AwsWorkshopStack extends cdk.Stack {
     });
 
     // ===========================================
-    // ECSプレースホルダー・タスク定義
+    // ECS Appタスク定義
     // ===========================================
-    // サービスを初回作成するために必要な、プレースホルダーのタスク定義
+    // サービスを初回作成するために必要な、Appのタスク定義
     // 実際のデプロイはCI/CDパイプラインが新しいリビジョンを作成して行う
-    const placeholderTaskDefinition = new ecs.FargateTaskDefinition(this, 'PlaceholderTaskDef', {
+
+    // ECSタスク実行ロール作成
+    const appTaskExecutionRole = new iam.Role(this, 'AppTaskExecutionRole', {
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
+      ],
+    });
+
+    // ECSタスクロール作成（コンテナ内からAWSサービスにアクセスする場合に使用）
+    const appTaskRole = new iam.Role(this, 'AppTaskRole', {
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+    });
+
+    const appTaskDefinition = new ecs.FargateTaskDefinition(this, 'AppTaskDef', {
       family: `aws-workshop-app-family-${identifier}`,
       cpu: 512, // 0.5 vCPU
       memoryLimitMiB: 1024, // 1 GB
+      executionRole: appTaskExecutionRole,
+      taskRole: appTaskRole,
       runtimePlatform: {
         operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
         cpuArchitecture: ecs.CpuArchitecture.ARM64,
       },
     });
 
-    // プレースホルダーのコンテナを追加
-    placeholderTaskDefinition.addContainer('PlaceholderContainer', {
+    // Appのコンテナを追加
+    appTaskDefinition.addContainer('AppContainer', {
       // 軽量で確実に存在するnginxイメージを使用
       image: ecs.ContainerImage.fromRegistry('nginx:latest'),
       portMappings: [{
@@ -323,13 +340,13 @@ export class AwsWorkshopStack extends cdk.Stack {
         protocol: ecs.Protocol.TCP,
       }],
       logging: ecs.LogDrivers.awsLogs({
-        streamPrefix: 'ecs-placeholder',
+        streamPrefix: 'ecs-app',
         logRetention: 30, // ログの保持期間（30日）
       }),
     });
 
     // ECRリポジトリへの読み取り権限をExecutionRoleに付与（コンテナ追加後に実行）
-    this.ecrRepository.grantPull(placeholderTaskDefinition.executionRole!);
+    this.ecrRepository.grantPull(appTaskExecutionRole);
 
     // ===========================================
     // ECSサービス作成
@@ -337,8 +354,8 @@ export class AwsWorkshopStack extends cdk.Stack {
     // コンテナを永続的に実行・管理するためのFargateサービスを作成
     const ecsService = new ecs.FargateService(this, 'WorkshopFargateService', {
       cluster: this.ecsCluster,
-      // プレースホルダーのタスク定義を指定
-      taskDefinition: placeholderTaskDefinition,
+      // Appのタスク定義を指定
+      taskDefinition: appTaskDefinition,
       // 実行するタスクの希望数
       desiredCount: 2,
       // ALBのターゲットグループにサービスを関連付ける
