@@ -39,8 +39,8 @@ export class AwsWorkshopStack extends cdk.Stack {
     this.vpc = new ec2.Vpc(this, 'WorkshopVpc', {
       // 使用するアベイラビリティゾーンの最大数
       maxAzs: 2,
-      // VPCのCIDRブロック（65,536個のIPアドレス）
-      cidr: '10.0.0.0/16',
+      // VPCのIPアドレス範囲（65,536個のIPアドレス）
+      ipAddresses: ec2.IpAddresses.cidr('10.0.0.0/16'),
       // サブネット構成の定義
       subnetConfiguration: [
         {
@@ -282,8 +282,8 @@ export class AwsWorkshopStack extends cdk.Stack {
       clusterName: `aws-workshop-cluster-${identifier}`,
       // Fargateキャパシティプロバイダーを有効化
       enableFargateCapacityProviders: true,
-      // Container Insightsを有効化（モニタリング用）
-      containerInsights: true,
+      // Container Insights V2を有効化（モニタリング用）
+      containerInsightsV2: ecs.ContainerInsights.ENHANCED,
     });
 
     // ===========================================
@@ -349,6 +349,9 @@ export class AwsWorkshopStack extends cdk.Stack {
       securityGroups: [this.ecsSecurityGroup],
       // サービスのヘルスチェック猶予期間
       healthCheckGracePeriod: cdk.Duration.seconds(60),
+      // デプロイ時の設定（明示的に指定して警告を回避）
+      minHealthyPercent: 50,
+      maxHealthyPercent: 200,
     });
 
     // サービスをALBのターゲットグループにアタッチ
