@@ -248,6 +248,8 @@ export class AwsWorkshopStack extends cdk.Stack {
       encryption: ecr.RepositoryEncryption.KMS,
       // スタック削除時の動作設定（ワークショップ用のため削除可能にする）
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      // スタック削除時にイメージがあっても強制削除する
+      emptyOnDelete: true,
     });
 
     // ===========================================
@@ -325,6 +327,9 @@ export class AwsWorkshopStack extends cdk.Stack {
         logRetention: 30, // ログの保持期間（30日）
       }),
     });
+
+    // ECRリポジトリへの読み取り権限をExecutionRoleに付与（コンテナ追加後に実行）
+    this.ecrRepository.grantPull(placeholderTaskDefinition.executionRole!);
 
     // ===========================================
     // ECSサービス作成
