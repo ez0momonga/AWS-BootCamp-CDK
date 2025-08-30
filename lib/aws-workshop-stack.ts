@@ -121,12 +121,12 @@ export class AwsWorkshopStack extends cdk.Stack {
       allowAllOutbound: true,
     });
 
-    // インバウンドルール：ALBからのHTTPアクセスのみ許可
+    // インバウンドルール：ALBからのRails serverアクセスのみ許可
     // セキュリティグループ同士を参照することで、ALBからの通信のみ許可
     this.ecsSecurityGroup.addIngressRule(
       this.albSecurityGroup, // ソースとしてALBのセキュリティグループを指定
-      ec2.Port.tcp(80),      // TCPポート80
-      'Allow traffic from ALB',
+      ec2.Port.tcp(3000),    // TCPポート3000 (Rails server)
+      'Allow traffic from ALB to Rails server',
     );
 
     // ===========================================
@@ -171,8 +171,8 @@ export class AwsWorkshopStack extends cdk.Stack {
     this.targetGroup = new elbv2.ApplicationTargetGroup(this, 'WorkshopTargetGroup', {
       // ターゲットタイプをIPアドレスに設定（ECS Fargateで使用）
       targetType: elbv2.TargetType.IP,
-      // 使用するポート番号（コンテナのリスニングポート）
-      port: 80,
+      // 使用するポート番号（Rails serverのリスニングポート）
+      port: 3000,
       // プロトコル設定
       protocol: elbv2.ApplicationProtocol.HTTP,
       // VPCを指定
@@ -333,10 +333,10 @@ export class AwsWorkshopStack extends cdk.Stack {
 
     // Appのコンテナを追加
     appTaskDefinition.addContainer('AppContainer', {
-      // 軽量で確実に存在するnginxイメージを使用
-      image: ecs.ContainerImage.fromRegistry('nginx:latest'),
+      // 学生がTask Definition更新するまでの一時的なプレースホルダーイメージ
+      image: ecs.ContainerImage.fromRegistry('public.ecr.aws/docker/library/hello-world:latest'),
       portMappings: [{
-        containerPort: 80, // nginxは80番ポートでリッスンする
+        containerPort: 3000, // Rails serverは3000番ポートでリッスンする
         protocol: ecs.Protocol.TCP,
       }],
       logging: ecs.LogDrivers.awsLogs({
@@ -380,6 +380,29 @@ export class AwsWorkshopStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'EcsServiceName', {
       value: ecsService.serviceName,
       description: 'ECS Service Name',
+    });
+
+    // ===========================================
+    // CloudFormation Outputs（学生用 Task Definition情報）
+    // ===========================================
+    new cdk.CfnOutput(this, 'TaskExecutionRoleArn', {
+      value: appTaskExecutionRole.roleArn,
+      description: 'Task Execution Role ARN (for student Task Definition)',
+    });
+
+    new cdk.CfnOutput(this, 'TaskRoleArn', {
+      value: appTaskRole.roleArn,
+      description: 'Task Role ARN (for student Task Definition)',
+    });
+
+    new cdk.CfnOutput(this, 'TaskDefinitionFamily', {
+      value: `aws-workshop-app-family-${identifier}`,
+      description: 'Task Definition Family Name (use this for student Task Definition)',
+    });
+
+    new cdk.CfnOutput(this, 'StudentInstructions', {
+      value: `Create Task Definition with Family: aws-workshop-app-family-${identifier}, Port: 3000, then Update Service: ${ecsService.serviceName}`,
+      description: 'Instructions for student deployment',
     });
   }
 }
