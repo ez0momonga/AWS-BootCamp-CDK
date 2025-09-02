@@ -1,14 +1,4 @@
-# AWS ALB + ECS ワークショップ
-
-AWS CDK（TypeScript）を使用してApplication Load Balancer（ALB）とECS（Elastic Container Service）でコンテナアプリケーションを構築するワークショップです。
-
-## 📋 学習目標
-
-- AWS CDKの基本的な使い方を習得
-- VPCとネットワーク設定の理解
-- Application Load Balancerの設定
-- ECSクラスターとサービスの構築
-- Infrastructure as Code（IaC）の実践
+# AWS ワークショップ
 
 ## 🚀 初心者向けセットアップ・デプロイガイド
 
@@ -19,8 +9,6 @@ AWS CDK（TypeScript）を使用してApplication Load Balancer（ALB）とECS�
 - **AWS CLI**
 - **Docker Desktop**
 
-> 💡 **CDKについて**: このプロジェクトではCDKをローカル依存関係として管理しているため、グローバルインストールは不要です。
-
 ### 1. AWS 認証設定
 
 ```bash
@@ -28,13 +16,13 @@ AWS CDK（TypeScript）を使用してApplication Load Balancer（ALB）とECS�
 aws sso login
 
 # プロファイルを指定してログインする場合
-aws sso login --profile develop
+aws sso login --profile trainee
 
 # 設定確認
 aws sts get-caller-identity
 ```
 
-> **注意**: プロファイル名（`develop`など）は事前にAWS CLI設定ファイル（`~/.aws/config`）で設定されている必要があります。講師から指定されたプロファイル名を使用してください。
+> **注意**: プロファイル名（`trainee`など）は事前にAWS CLI設定ファイル（`~/.aws/config`）で設定されている必要があります。
 
 ### 2. 環境変数の設定
 
@@ -53,7 +41,7 @@ cat .env
 AWS プロファイルを使用する場合は環境変数で指定：
 ```bash
 # AWS プロファイルを指定（SSOを使用する場合）
-export AWS_PROFILE=develop
+export AWS_PROFILE=trainee
 ```
 
 ### 3. CDK 初期設定
@@ -179,24 +167,10 @@ Application Load Balancer
 ### CDK 操作
 * `npx cdk synth`   - CloudFormationテンプレートを生成・確認
 * `npx cdk diff`    - デプロイ済みスタックと現在の状態を比較
-* `npx cdk deploy`  - スタックをAWSにデプロイ（⚠️学生自身が実行）
-* `npx cdk destroy` - すべてのリソースを削除（⚠️必須）
+* `npx cdk deploy`  - スタックをAWSにデプロイ
+* `npx cdk destroy` - すべてのリソースを削除
 
 ### AWS CLI
 * `aws sts get-caller-identity` - AWS認証情報の確認
 * `aws configure` - AWS認証情報の設定
 
-## ⚠️ 重要な注意事項
-
-- **デプロイ作業**: `npx cdk deploy` は**必ず学生自身が実行**してください（講師は代行しません）
-- **リソース削除**: ワークショップ終了後は `npx cdk destroy` で**必ずリソースを削除**してください
-- **料金**: NATゲートウェイやALBは**時間課金**されるため、不要時は必ず削除をお願いします
-- **リージョン**: このプロジェクトは `ap-northeast-1`（東京）リージョンを前提としています
-- **責任**: デプロイ・削除は学生の責任で実行し、**課金も学生が負担**します
-
-## 🆘 サポート
-
-問題が発生した場合:
-1. [SETUP.md](./SETUP.md) のトラブルシューティングセクションを確認
-2. 講師に質問
-3. AWS CloudFormationコンソールでスタックの状態を確認
